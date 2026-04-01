@@ -1,0 +1,36 @@
+{
+  "appName": "Seat Scoring App",
+  "version": "3.0.0",
+  "storage": {
+    "indexedDbName": "seat-scoring-db",
+    "indexedDbVersion": 3,
+    "localStoragePrefix": "ssa_"
+  },
+  "scoring": {
+    "maxScore": 100,
+    "minScore": 0,
+    "passingThreshold": 60
+  },
+  "seats": {
+    "maxPerVenue": 500,
+    "defaultRows": 10,
+    "defaultSeatsPerRow": 20
+  },
+  "holds": {
+    "durationMs": 600000,
+    "warningThresholdMs": 60000
+  },
+  "auth": {
+    "pbkdf2Iterations": 100000,
+    "hashAlgorithm": "SHA-256",
+    "saltLength": 16
+  },
+  "notifications": {
+    "rateLimitPerMinute": 30,
+    "maxRetries": 3
+  },
+  "encryption": {
+    "algorithm": "AES-GCM",
+    "keyLength": 256
+  }
+}
