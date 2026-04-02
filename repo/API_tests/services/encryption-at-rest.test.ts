@@ -9,6 +9,8 @@ import { QuestionRepositoryIDB } from '@adapters/indexeddb/question-repository-i
 import { createQuestion } from '@domain/models/question';
 import { createAttempt } from '@domain/models/attempt';
 
+const actor = { userId: 'test', role: 'administrator' as const };
+
 describe('Encryption at rest - nutrition health data', () => {
   let nutritionSvc: NutritionService;
   let crypto: CryptoStorageService;
@@ -80,7 +82,7 @@ describe('Encryption at rest - grade comments', () => {
     const grade = await gradingSvc.manualGrade({
       attemptId: a.id, reviewerId: 'r1', score: 7.5, maxScore: 10,
       feedback: 'Good analysis', comments: 'Minor grammar issues',
-    });
+    }, actor);
 
     const encrypted = await crypto.decrypt(`grade:${grade.id}`);
     expect(encrypted).not.toBeNull();
@@ -95,7 +97,7 @@ describe('Encryption at rest - grade comments', () => {
     const a = createAttempt({ questionId: q.id, userId: 'u1' });
     await new AttemptRepositoryIDB().save(a);
 
-    const { grade } = await gradingSvc.submitAndAutoScore(a.id, 'B');
+    const { grade } = await gradingSvc.submitAndAutoScore(a.id, 'B', actor);
     expect(grade).not.toBeNull();
 
     const encrypted = await crypto.decrypt(`grade:${grade!.id}`);

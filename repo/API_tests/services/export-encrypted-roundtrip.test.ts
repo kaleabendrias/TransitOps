@@ -12,6 +12,8 @@ import { createQuestion } from '@domain/models/question';
 import { createAttempt } from '@domain/models/attempt';
 import type { ExportBundle } from '@services/export-import-service';
 
+const actor = { userId: 'test', role: 'administrator' as const };
+
 describe('Export/import includes encryptedStore for sensitive-data round-trip', () => {
   let exportSvc: ExportImportService;
   let nutritionSvc: NutritionService;
@@ -88,7 +90,7 @@ describe('Export/import includes encryptedStore for sensitive-data round-trip', 
     const grade = await gradingSvc.manualGrade({
       attemptId: a.id, reviewerId: 'r1', score: 8, maxScore: 10,
       feedback: 'Great work', comments: 'Private note',
-    });
+    }, actor);
 
     // Export
     const blob = await exportSvc.exportToJson();

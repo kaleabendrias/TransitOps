@@ -13,18 +13,11 @@
   let isBootstrap = $state(false);
 
   onMount(async () => {
-    // Check if any users exist — if not, this is a bootstrap scenario
-    // where the first admin can be created via the UI
     try {
-      const session = authService.getSession();
-      if (!session) {
-        // Try to detect empty DB by attempting a bootstrap check
-        // createAdmin with empty fields will fail, but we can check if admin exists
-        // by calling the service method that checks internally
-        isBootstrap = true; // assume bootstrap until first registration succeeds
-      }
+      const hasAdmin = await authService.adminExists();
+      isBootstrap = !hasAdmin;
     } catch {
-      isBootstrap = true;
+      isBootstrap = false;
     }
   });
 
@@ -57,7 +50,7 @@
 
 <section class="login-page">
   <div class="login-card">
-    <h1>Seat Scoring App</h1>
+    <h1>TransitOps</h1>
     <h2>{isRegister ? 'Create Account' : 'Sign In'}</h2>
 
     {#if isRegister && isBootstrap && role === 'administrator'}

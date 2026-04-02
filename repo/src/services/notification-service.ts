@@ -122,6 +122,29 @@ export class NotificationService {
     return this.subRepo.getByUser(userId);
   }
 
+  /** Delivers pending notifications whose quiet hours have ended. */
+  async processPending(): Promise<{ delivered: number; stillPending: number }> {
+    const pending = await this.notifRepo.getByStatus('pending');
+    let delivered = 0;
+    let stillPending = 0;
+    for (const n of pending) {
+      let inQuiet = false;
+      if (this.prefsRepo) {
+        const prefs = this.prefsRepo.get(n.userId);
+        inQuiet = isInQuietHours(prefs.quietHours);
+      }
+      if (!inQuiet) {
+        const d = markDelivered(n);
+        await this.notifRepo.save(d);
+        auditLog('info', 'notification', 'pending_delivered', { notificationId: n.id }, n.userId);
+        delivered++;
+      } else {
+        stillPending++;
+      }
+    }
+    return { delivered, stillPending };
+  }
+
   /** Retries all failed notifications. Exhausted ones move to dead_letter. */
   async processRetries(): Promise<{ retried: number; deadLettered: number }> {
     const failed = await this.notifRepo.getByStatus('failed');

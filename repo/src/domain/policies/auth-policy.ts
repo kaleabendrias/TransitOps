@@ -58,6 +58,8 @@ export const ROUTE_ACCESS: RouteAccess[] = [
   { path: '/trips/new', requiredPermissions: ['manage_trips'] },
   { path: '/trip/:id/seats', requiredPermissions: ['manage_seats'] },
   { path: '/questions', requiredPermissions: ['manage_questions'] },
+  { path: '/assess/:id', requiredPermissions: ['view_trips'] },
+  { path: '/grade/:id', requiredPermissions: ['grade_attempts'] },
   { path: '/grading', requiredPermissions: ['review_attempts'] },
   { path: '/catalogs', requiredPermissions: ['manage_catalogs'] },
   { path: '/admin', requiredPermissions: ['manage_users'] },

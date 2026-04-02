@@ -1,7 +1,7 @@
 import type { Grade } from '@domain/models/grade';
 import { createGrade, updateGradeScore, addSecondReview, flagForSecondReview } from '@domain/models/grade';
 import type { Attempt } from '@domain/models/attempt';
-import { submitAttempt } from '@domain/models/attempt';
+import { createAttempt as createAttemptModel, submitAttempt } from '@domain/models/attempt';
 import type { Question } from '@domain/models/question';
 import type { GradeRepository } from '@domain/ports/grade-repository';
 import type { AttemptRepository } from '@domain/ports/attempt-repository';
@@ -13,6 +13,8 @@ import {
   computeWeightedScore, requiresSecondReview, validateGradeScore,
 } from '@domain/policies/grading-policy';
 import type { CryptoStorageService } from './crypto-storage-service';
+import type { ServiceActor } from './service-actor';
+import { requirePermission } from './service-actor';
 
 const SCRUBBED = '[encrypted]';
 
@@ -32,7 +34,21 @@ export class GradingService {
 
   private get increment() { return this.gradingConfig.roundingIncrement; }
 
-  async submitAndAutoScore(attemptId: string, answer: string): Promise<{ attempt: Attempt; grade: Grade | null }> {
+  async createAttempt(questionId: string, userId: string, actor: ServiceActor): Promise<Attempt> {
+    requirePermission(actor, 'view_trips');
+    const question = await this.questionRepo.getById(questionId);
+    if (!question) throw new Error(`Question ${questionId} not found`);
+    const attempt = createAttemptModel({ questionId, userId });
+    await this.attemptRepo.save(attempt);
+    return attempt;
+  }
+
+  async getAttempt(attemptId: string): Promise<Attempt | null> {
+    return this.attemptRepo.getById(attemptId);
+  }
+
+  async submitAndAutoScore(attemptId: string, answer: string, actor: ServiceActor): Promise<{ attempt: Attempt; grade: Grade | null }> {
+    requirePermission(actor, 'view_trips');
     const attempt = await this.attemptRepo.getById(attemptId);
     if (!attempt) throw new Error(`Attempt ${attemptId} not found`);
 
@@ -70,7 +86,8 @@ export class GradingService {
     maxScore: number;
     feedback: string;
     comments?: string;
-  }): Promise<Grade> {
+  }, actor: ServiceActor): Promise<Grade> {
+    requirePermission(actor, 'grade_attempts');
     const inc = this.increment;
     const clamped = clampGradeScore(params.score, params.maxScore, inc);
     const error = validateGradeScore(clamped, params.maxScore, inc);
@@ -112,7 +129,8 @@ export class GradingService {
     return grade;
   }
 
-  async submitSecondReview(gradeId: string, reviewerId: string, score: number, feedback: string): Promise<Grade> {
+  async submitSecondReview(gradeId: string, reviewerId: string, score: number, feedback: string, actor: ServiceActor): Promise<Grade> {
+    requirePermission(actor, 'grade_attempts');
     const grade = await this.gradeRepo.getById(gradeId);
     if (!grade) throw new Error(`Grade ${gradeId} not found`);
     if (!grade.requiresSecondReview) throw new Error('Grade does not require second review');
@@ -125,6 +143,46 @@ export class GradingService {
 
   async getGradesRequiringSecondReview(): Promise<Grade[]> {
     return this.gradeRepo.getAllRequiringSecondReview();
+  }
+
+  async getDecryptedGrade(gradeId: string): Promise<Grade | null> {
+    const grade = await this.gradeRepo.getById(gradeId);
+    if (!grade) return null;
+    return this.decryptGradeFields(grade);
+  }
+
+  async getDecryptedGradeByAttempt(attemptId: string): Promise<Grade | null> {
+    const grade = await this.gradeRepo.getByAttempt(attemptId);
+    if (!grade) return null;
+    return this.decryptGradeFields(grade);
+  }
+
+  async getDecryptedGrades(reviewerId: string): Promise<Grade[]> {
+    const grades = await this.gradeRepo.getByReviewer(reviewerId);
+    return Promise.all(grades.map((g) => this.decryptGradeFields(g)));
+  }
+
+  async getDecryptedSecondReviewQueue(): Promise<Grade[]> {
+    const grades = await this.gradeRepo.getAllRequiringSecondReview();
+    return Promise.all(grades.map((g) => this.decryptGradeFields(g)));
+  }
+
+  private async decryptGradeFields(grade: Grade): Promise<Grade> {
+    if (!this.cryptoStore || !this.cryptoStore.hasKeyMaterial()) return grade;
+    if (grade.feedback !== SCRUBBED && grade.comments !== SCRUBBED) return grade;
+    try {
+      const raw = await this.cryptoStore.decrypt(`grade:${grade.id}`);
+      if (!raw) return grade;
+      const data = JSON.parse(raw) as { feedback?: string; comments?: string; secondReviewFeedback?: string | null };
+      return {
+        ...grade,
+        feedback: data.feedback ?? grade.feedback,
+        comments: data.comments ?? grade.comments,
+        secondReviewFeedback: data.secondReviewFeedback ?? grade.secondReviewFeedback,
+      };
+    } catch {
+      return grade;
+    }
   }
 
   async computeOverallScore(attemptIds: string[]): Promise<number> {

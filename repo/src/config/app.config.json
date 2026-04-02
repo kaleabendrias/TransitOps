@@ -1,10 +1,10 @@
 {
-  "appName": "Seat Scoring App",
+  "appName": "TransitOps",
   "version": "3.0.0",
   "storage": {
-    "indexedDbName": "seat-scoring-db",
+    "indexedDbName": "transitops-db",
     "indexedDbVersion": 3,
-    "localStoragePrefix": "ssa_"
+    "localStoragePrefix": "to_"
   },
   "scoring": {
     "maxScore": 100,

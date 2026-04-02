@@ -9,6 +9,8 @@ import { QuestionRepositoryIDB } from '@adapters/indexeddb/question-repository-i
 import { createQuestion } from '@domain/models/question';
 import { createAttempt } from '@domain/models/attempt';
 
+const actor = { userId: 'test', role: 'administrator' as const };
+
 describe('No sensitive plaintext in canonical IDB records', () => {
   describe('Nutrition profile', () => {
     let svc: NutritionService;
@@ -82,7 +84,7 @@ describe('No sensitive plaintext in canonical IDB records', () => {
       const grade = await svc.manualGrade({
         attemptId: a.id, reviewerId: 'r1', score: 8, maxScore: 10,
         feedback: 'Excellent analysis', comments: 'Private note: check plagiarism',
-      });
+      }, actor);
 
       // Read directly from repo
       const raw = await gradeRepo.getById(grade.id);
@@ -100,7 +102,7 @@ describe('No sensitive plaintext in canonical IDB records', () => {
       const grade = await svc.manualGrade({
         attemptId: a.id, reviewerId: 'r1', score: 7, maxScore: 10,
         feedback: 'Needs more depth', comments: 'Grading note',
-      });
+      }, actor);
 
       const decrypted = await crypto.decrypt(`grade:${grade.id}`);
       expect(decrypted).not.toBeNull();
@@ -115,7 +117,7 @@ describe('No sensitive plaintext in canonical IDB records', () => {
       const a = createAttempt({ questionId: q.id, userId: 'u1' });
       await new AttemptRepositoryIDB().save(a);
 
-      const { grade } = await svc.submitAndAutoScore(a.id, 'B');
+      const { grade } = await svc.submitAndAutoScore(a.id, 'B', actor);
       expect(grade).not.toBeNull();
 
       const raw = await gradeRepo.getById(grade!.id);

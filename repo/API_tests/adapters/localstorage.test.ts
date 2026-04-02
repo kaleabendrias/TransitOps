@@ -24,7 +24,7 @@ describe('PreferencesRepositoryLS', () => {
   });
 
   it('merges with defaults for missing fields', () => {
-    localStorage.setItem('ssa_preferences', JSON.stringify({ theme: 'dark' }));
+    localStorage.setItem('to_preferences', JSON.stringify({ theme: 'dark' }));
     const p = repo.get();
     expect(p.theme).toBe('dark');
     expect(p.uiLanguage).toBe('en'); // default
@@ -32,7 +32,7 @@ describe('PreferencesRepositoryLS', () => {
   });
 
   it('handles corrupt JSON gracefully', () => {
-    localStorage.setItem('ssa_preferences', 'not-json');
+    localStorage.setItem('to_preferences', 'not-json');
     const p = repo.get();
     expect(p.theme).toBe('light');
   });
@@ -59,7 +59,7 @@ describe('AuthRepositoryLS', () => {
   });
 
   it('handles corrupt JSON', () => {
-    localStorage.setItem('ssa_session', 'bad');
+    localStorage.setItem('to_session', 'bad');
     expect(repo.getSession()).toBeNull();
   });
 });

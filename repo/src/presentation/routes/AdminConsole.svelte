@@ -114,7 +114,7 @@
 
   async function handleExport() {
     const blob = await exportImportService.exportToJson();
-    exportImportService.triggerDownload(blob, `ssa-export-${new Date().toISOString().slice(0,10)}.json`);
+    exportImportService.triggerDownload(blob, `transitops-export-${new Date().toISOString().slice(0,10)}.json`);
   }
 
   let importInput: HTMLInputElement;
@@ -166,19 +166,23 @@
   <div class="table-wrap">
     <table>
       {#if tab === 'departments'}
-        <thead><tr><th>Name</th><th>Code</th><th>Tags</th><th>Active</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Code</th><th>Sample Types</th><th>Exec Queues</th><th>Tags</th><th>Active</th><th>Actions</th></tr></thead>
         <tbody>
           {#each departments as dept (dept.id)}
             <tr class:inactive={!dept.isActive}>
               {#if editingId === dept.id}
                 <td><input bind:value={editName} /></td>
                 <td><input bind:value={editCode} /></td>
+                <td><input bind:value={editSampleTypes} placeholder="type1, type2" /></td>
+                <td><input bind:value={editQueues} placeholder="queue1, queue2" /></td>
                 <td><input bind:value={editTags} placeholder="tag1, tag2" /></td>
                 <td><input type="checkbox" checked={dept.isActive} onchange={() => toggleActive(dept)} /></td>
                 <td><button class="save-btn" onclick={() => saveDepartment(dept)}>Save</button> <button class="cancel-btn" onclick={() => editingId = null}>Cancel</button></td>
               {:else}
                 <td><button class="link-btn" onclick={() => openDrawer(dept)}>{dept.name}</button></td>
                 <td>{dept.code}</td>
+                <td>{dept.sampleTypes.join(', ') || '—'}</td>
+                <td>{dept.executionQueues.join(', ') || '—'}</td>
                 <td>{dept.tags.join(', ') || '—'}</td>
                 <td>{dept.isActive ? 'Yes' : 'No'}</td>
                 <td><button class="edit-btn" onclick={() => startEdit(dept)}>Edit</button></td>

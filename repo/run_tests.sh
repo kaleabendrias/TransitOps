@@ -7,14 +7,16 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo "========================================"
-echo " Running all test suites in containers"
-echo "========================================"
-echo ""
+# Detect if Docker is available
+USE_DOCKER=true
+if ! command -v docker &>/dev/null || ! docker info &>/dev/null 2>&1; then
+  USE_DOCKER=false
+fi
 
-# Build the test image
-echo -e "${YELLOW}Building test container...${NC}"
-docker compose build test 2>&1 | tail -3
+# Allow explicit override: LOCAL=1 ./run_tests.sh
+if [ "${LOCAL:-}" = "1" ]; then
+  USE_DOCKER=false
+fi
 
 check_coverage() {
   local suite_name="$1"
@@ -54,29 +56,64 @@ check_coverage() {
   fi
 }
 
-# ── Unit Tests ───────────────────────────────────────────────────
-echo ""
-echo -e "${YELLOW}[1/2] Running unit tests...${NC}"
-echo "----------------------------------------"
+if [ "$USE_DOCKER" = true ]; then
+  echo "========================================"
+  echo " Running all test suites in containers"
+  echo "========================================"
+  echo ""
 
-docker compose run --rm test sh -c "npm run test:unit:coverage 2>&1"
-unit_exit=$?
+  echo -e "${YELLOW}Building test container...${NC}"
+  docker compose build test 2>&1 | tail -3
 
-if [ $unit_exit -ne 0 ]; then
-  echo -e "${RED}Unit tests failed (exit code $unit_exit)${NC}"
-  # Don't exit yet — still try API tests for full report
-fi
+  echo ""
+  echo -e "${YELLOW}[1/2] Running unit tests...${NC}"
+  echo "----------------------------------------"
+  docker compose run --rm test sh -c "npm run test:unit:coverage 2>&1"
+  unit_exit=$?
 
-# ── API Tests ────────────────────────────────────────────────────
-echo ""
-echo -e "${YELLOW}[2/2] Running API tests...${NC}"
-echo "----------------------------------------"
+  if [ $unit_exit -ne 0 ]; then
+    echo -e "${RED}Unit tests failed (exit code $unit_exit)${NC}"
+  fi
 
-docker compose run --rm test sh -c "npm run test:api:coverage 2>&1"
-api_exit=$?
+  echo ""
+  echo -e "${YELLOW}[2/2] Running API tests...${NC}"
+  echo "----------------------------------------"
+  docker compose run --rm test sh -c "npm run test:api:coverage 2>&1"
+  api_exit=$?
 
-if [ $api_exit -ne 0 ]; then
-  echo -e "${RED}API tests failed (exit code $api_exit)${NC}"
+  if [ $api_exit -ne 0 ]; then
+    echo -e "${RED}API tests failed (exit code $api_exit)${NC}"
+  fi
+else
+  echo "========================================"
+  echo " Running all test suites locally"
+  echo "========================================"
+  echo ""
+
+  echo -e "${YELLOW}[1/3] Type-checking...${NC}"
+  echo "----------------------------------------"
+  npm run check
+  echo -e "${GREEN}PASS: svelte-check${NC}"
+
+  echo ""
+  echo -e "${YELLOW}[2/3] Running unit tests...${NC}"
+  echo "----------------------------------------"
+  npm run test:unit:coverage 2>&1
+  unit_exit=$?
+
+  if [ $unit_exit -ne 0 ]; then
+    echo -e "${RED}Unit tests failed (exit code $unit_exit)${NC}"
+  fi
+
+  echo ""
+  echo -e "${YELLOW}[3/3] Running API tests...${NC}"
+  echo "----------------------------------------"
+  npm run test:api:coverage 2>&1
+  api_exit=$?
+
+  if [ $api_exit -ne 0 ]; then
+    echo -e "${RED}API tests failed (exit code $api_exit)${NC}"
+  fi
 fi
 
 # ── Coverage Gate ────────────────────────────────────────────────
@@ -90,14 +127,14 @@ gate_failed=0
 if [ -f "coverage/unit/coverage-summary.json" ]; then
   check_coverage "Unit Tests" "coverage/unit/coverage-summary.json" || gate_failed=1
 else
-  echo -e "${YELLOW}Unit coverage report not found locally — checking container output above${NC}"
+  echo -e "${YELLOW}Unit coverage report not found locally — checking exit code${NC}"
   if [ $unit_exit -ne 0 ]; then gate_failed=1; fi
 fi
 
 if [ -f "coverage/api/coverage-summary.json" ]; then
   check_coverage "API Tests" "coverage/api/coverage-summary.json" || gate_failed=1
 else
-  echo -e "${YELLOW}API coverage report not found locally — checking container output above${NC}"
+  echo -e "${YELLOW}API coverage report not found locally — checking exit code${NC}"
   if [ $api_exit -ne 0 ]; then gate_failed=1; fi
 fi
 

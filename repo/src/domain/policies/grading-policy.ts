@@ -10,8 +10,22 @@ export function isAutoScorable(questionType: QuestionType): boolean {
     || questionType === 'single_choice' || questionType === 'fill_in_the_blank';
 }
 
+/** Parses a possibly comma-separated answer string into a sorted, deduplicated set. */
+function parseAnswerSet(raw: string): string[] {
+  return [...new Set(raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean))].sort();
+}
+
 export function autoScore(question: Question, answer: string): number {
   if (!isAutoScorable(question.type)) return 0;
+
+  if (question.type === 'multiple_choice') {
+    const correctSet = parseAnswerSet(question.correctAnswer);
+    const givenSet = parseAnswerSet(answer);
+    if (correctSet.length !== givenSet.length) return 0;
+    const match = correctSet.every((v, i) => v === givenSet[i]);
+    return match ? question.points : 0;
+  }
+
   const correct = question.correctAnswer.trim().toLowerCase();
   const given = answer.trim().toLowerCase();
   return correct === given ? question.points : 0;

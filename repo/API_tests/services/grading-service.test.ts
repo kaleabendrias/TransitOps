@@ -6,6 +6,8 @@ import { QuestionRepositoryIDB } from '@adapters/indexeddb/question-repository-i
 import { createQuestion } from '@domain/models/question';
 import { createAttempt } from '@domain/models/attempt';
 
+const actor = { userId: 'test', role: 'administrator' as const };
+
 describe('GradingService', () => {
   let svc: GradingService;
   let gradeRepo: GradeRepositoryIDB;
@@ -25,7 +27,7 @@ describe('GradingService', () => {
     const a = createAttempt({ questionId: q.id, userId: 'u1' });
     await attemptRepo.save(a);
 
-    const { attempt, grade } = await svc.submitAndAutoScore(a.id, 'B');
+    const { attempt, grade } = await svc.submitAndAutoScore(a.id, 'B', actor);
     expect(attempt.status).toBe('submitted');
     expect(grade).not.toBeNull();
     expect(grade!.score).toBe(5);
@@ -39,7 +41,7 @@ describe('GradingService', () => {
     const a = createAttempt({ questionId: q.id, userId: 'u1' });
     await attemptRepo.save(a);
 
-    const { grade } = await svc.submitAndAutoScore(a.id, 'A');
+    const { grade } = await svc.submitAndAutoScore(a.id, 'A', actor);
     expect(grade!.score).toBe(0);
     expect(grade!.feedback).toContain('Incorrect');
   });
@@ -50,7 +52,7 @@ describe('GradingService', () => {
     const a = createAttempt({ questionId: q.id, userId: 'u1' });
     await attemptRepo.save(a);
 
-    const { grade } = await svc.submitAndAutoScore(a.id, 'My essay');
+    const { grade } = await svc.submitAndAutoScore(a.id, 'My essay', actor);
     expect(grade).toBeNull();
   });
 
@@ -60,7 +62,7 @@ describe('GradingService', () => {
     const a = createAttempt({ questionId: q.id, userId: 'u1' });
     await attemptRepo.save(a);
 
-    const grade = await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 7.3, maxScore: 10, feedback: 'good' });
+    const grade = await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 7.3, maxScore: 10, feedback: 'good' }, actor);
     expect(grade.score).toBe(7.5); // rounded to 0.5
   });
 
@@ -70,8 +72,8 @@ describe('GradingService', () => {
     const a = createAttempt({ questionId: q.id, userId: 'u1' });
     await attemptRepo.save(a);
 
-    await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 5, maxScore: 20, feedback: 'low' });
-    const updated = await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 18, maxScore: 20, feedback: 'high' });
+    await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 5, maxScore: 20, feedback: 'low' }, actor);
+    const updated = await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 18, maxScore: 20, feedback: 'high' }, actor);
     expect(updated.requiresSecondReview).toBe(true);
   });
 
@@ -81,10 +83,10 @@ describe('GradingService', () => {
     const a = createAttempt({ questionId: q.id, userId: 'u1' });
     await attemptRepo.save(a);
 
-    await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 5, maxScore: 20, feedback: 'low' });
-    const flagged = await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 18, maxScore: 20, feedback: 'high' });
+    await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 5, maxScore: 20, feedback: 'low' }, actor);
+    const flagged = await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 18, maxScore: 20, feedback: 'high' }, actor);
 
-    const reviewed = await svc.submitSecondReview(flagged.id, 'r2', 14, 'moderate');
+    const reviewed = await svc.submitSecondReview(flagged.id, 'r2', 14, 'moderate', actor);
     expect(reviewed.secondReviewerId).toBe('r2');
     expect(reviewed.secondReviewScore).toBe(14);
     expect(reviewed.finalScore).toBe((18 + 14) / 2);
@@ -97,8 +99,8 @@ describe('GradingService', () => {
     const a = createAttempt({ questionId: q.id, userId: 'u1' });
     await attemptRepo.save(a);
 
-    const grade = await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 8, maxScore: 10, feedback: 'ok' });
-    await expect(svc.submitSecondReview(grade.id, 'r2', 7, 'lower')).rejects.toThrow('does not require');
+    const grade = await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 8, maxScore: 10, feedback: 'ok' }, actor);
+    await expect(svc.submitSecondReview(grade.id, 'r2', 7, 'lower', actor)).rejects.toThrow('does not require');
   });
 
   it('computeOverallScore computes weighted average', async () => {
@@ -112,8 +114,8 @@ describe('GradingService', () => {
     await attemptRepo.save(a1);
     await attemptRepo.save(a2);
 
-    await svc.submitAndAutoScore(a1.id, 'A');
-    await svc.manualGrade({ attemptId: a2.id, reviewerId: 'r1', score: 5, maxScore: 10, feedback: 'ok' });
+    await svc.submitAndAutoScore(a1.id, 'A', actor);
+    await svc.manualGrade({ attemptId: a2.id, reviewerId: 'r1', score: 5, maxScore: 10, feedback: 'ok' }, actor);
 
     const overall = await svc.computeOverallScore([a1.id, a2.id]);
     expect(overall).toBeGreaterThan(0);
@@ -121,8 +123,8 @@ describe('GradingService', () => {
   });
 
   it('rejects invalid attempt/question', async () => {
-    await expect(svc.submitAndAutoScore('bogus', 'A')).rejects.toThrow('not found');
-    await expect(svc.manualGrade({ attemptId: 'bogus', reviewerId: 'r', score: 5, maxScore: 10, feedback: '' })).rejects.toThrow('not found');
-    await expect(svc.submitSecondReview('bogus', 'r', 5, '')).rejects.toThrow('not found');
+    await expect(svc.submitAndAutoScore('bogus', 'A', actor)).rejects.toThrow('not found');
+    await expect(svc.manualGrade({ attemptId: 'bogus', reviewerId: 'r', score: 5, maxScore: 10, feedback: '' }, actor)).rejects.toThrow('not found');
+    await expect(svc.submitSecondReview('bogus', 'r', 5, '', actor)).rejects.toThrow('not found');
   });
 });

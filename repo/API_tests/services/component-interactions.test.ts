@@ -20,6 +20,8 @@ import { canAccessRoute } from '@domain/policies/auth-policy';
 import type { UserRole } from '@domain/models/user';
 import { createAttempt } from '@domain/models/attempt';
 
+const actor = { userId: 'test', role: 'administrator' as const };
+
 describe('Critical page interactions by role', () => {
   let auth: AuthService;
   let venues: VenueService;
@@ -101,7 +103,7 @@ describe('Critical page interactions by role', () => {
       const a = createAttempt({ questionId: q.id, userId: 'student' });
       await attemptRepo.save(a);
 
-      const { grade } = await grading.submitAndAutoScore(a.id, 'B');
+      const { grade } = await grading.submitAndAutoScore(a.id, 'B', actor);
       expect(grade).not.toBeNull();
       expect(grade!.score).toBe(5);
     });

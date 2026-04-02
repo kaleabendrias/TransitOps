@@ -7,7 +7,8 @@
   import { isLoggedIn, currentRole, sessionReady, rehydrateSession } from './stores/auth-store';
   import { canAccessRoute } from '@domain/policies/auth-policy';
   import type { UserRole } from '@domain/models/user';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
+  import { notificationService } from '@services/container';
 
   import Login from './routes/Login.svelte';
   import VenueList from './routes/VenueList.svelte';
@@ -20,6 +21,8 @@
   import NotificationCenter from './routes/NotificationCenter.svelte';
   import NutritionProfile from './routes/NutritionProfile.svelte';
   import Settings from './routes/Settings.svelte';
+  import AssessmentSubmission from './routes/AssessmentSubmission.svelte';
+  import ManualGrading from './routes/ManualGrading.svelte';
   import NotFound from './routes/NotFound.svelte';
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,6 +53,8 @@
     '/trip/:id/seats': wrap({ component: TripSeatMap as Comp, conditions: [authGuard, rbacGuard('/trip/:id/seats')] }),
     '/admin': wrap({ component: AdminConsole as Comp, conditions: [authGuard, rbacGuard('/admin')] }),
     '/questions': wrap({ component: QuestionManagement as Comp, conditions: [authGuard, rbacGuard('/questions')] }),
+    '/assess/:id': wrap({ component: AssessmentSubmission as Comp, conditions: [authGuard, rbacGuard('/assess/:id')] }),
+    '/grade/:id': wrap({ component: ManualGrading as Comp, conditions: [authGuard, rbacGuard('/grade/:id')] }),
     '/grading': wrap({ component: GradingWorkflow as Comp, conditions: [authGuard, rbacGuard('/grading')] }),
     '/notifications': wrap({ component: NotificationCenter as Comp, conditions: [authGuard, rbacGuard('/notifications')] }),
     '/nutrition': wrap({ component: NutritionProfile as Comp, conditions: [authGuard, rbacGuard('/nutrition')] }),
@@ -65,7 +70,28 @@
     }
   }
 
+  const PENDING_CHECK_INTERVAL_MS = 60_000;
+  let pendingTimer: ReturnType<typeof setInterval> | null = null;
+
+  function startPendingProcessor() {
+    notificationService.processPending();
+    pendingTimer = setInterval(() => { notificationService.processPending(); }, PENDING_CHECK_INTERVAL_MS);
+  }
+
+  function stopPendingProcessor() {
+    if (pendingTimer) { clearInterval(pendingTimer); pendingTimer = null; }
+  }
+
   onMount(() => { rehydrateSession(); });
+  onDestroy(() => { stopPendingProcessor(); });
+
+  $effect(() => {
+    if ($sessionReady && $isLoggedIn) {
+      startPendingProcessor();
+    } else {
+      stopPendingProcessor();
+    }
+  });
 
   $effect(() => {
     if ($sessionReady && !$isLoggedIn) {

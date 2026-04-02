@@ -5,6 +5,8 @@ import type { HoldRepository } from '@domain/ports/hold-repository';
 import type { SeatMapRepository } from '@domain/ports/seat-map-repository';
 import { holdSyncBus, type HoldSyncMessage } from './hold-sync';
 import { getTabId } from './tab-id';
+import type { ServiceActor } from './service-actor';
+import { requirePermission } from './service-actor';
 
 type HoldChangeListener = () => void;
 
@@ -31,7 +33,8 @@ export class HoldService {
     }
   }
 
-  async placeSeatHold(tripId: string, seatMapEntryId: string, userId: string): Promise<Hold> {
+  async placeSeatHold(tripId: string, seatMapEntryId: string, userId: string, actor: ServiceActor): Promise<Hold> {
+    requirePermission(actor, 'hold_seats');
     const seat = await this.seatMapRepo.getById(seatMapEntryId);
     if (!seat) throw new Error(`Seat ${seatMapEntryId} not found`);
 
@@ -64,7 +67,8 @@ export class HoldService {
     return hold;
   }
 
-  async releaseSeatHold(holdId: string, userId: string): Promise<void> {
+  async releaseSeatHold(holdId: string, userId: string, actor: ServiceActor): Promise<void> {
+    requirePermission(actor, 'hold_seats');
     const hold = await this.holdRepo.getById(holdId);
     if (!hold) throw new Error(`Hold ${holdId} not found`);
 
@@ -84,7 +88,8 @@ export class HoldService {
     this.notifyChange();
   }
 
-  async confirmSeatHold(holdId: string, userId: string): Promise<Hold> {
+  async confirmSeatHold(holdId: string, userId: string, actor: ServiceActor): Promise<Hold> {
+    requirePermission(actor, 'hold_seats');
     const hold = await this.holdRepo.getById(holdId);
     if (!hold) throw new Error(`Hold ${holdId} not found`);
 

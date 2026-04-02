@@ -3,11 +3,10 @@
   import type { Grade } from '@domain/models/grade';
   import { roundToHalf, SECOND_REVIEW_THRESHOLD } from '@domain/policies/grading-policy';
   import { gradingService } from '@services/container';
-  import { currentUserId } from '../stores/auth-store';
-  import { GradeRepositoryIDB } from '@adapters/indexeddb/grade-repository-idb';
+  import { currentUserId, currentRole } from '../stores/auth-store';
+  import type { UserRole } from '@domain/models/user';
 
-  const gradeRepo = new GradeRepositoryIDB();
-
+  function getActor() { return { userId: $currentUserId ?? '', role: ($currentRole ?? 'reviewer') as UserRole }; }
   let recentGrades = $state<Grade[]>([]);
   let secondReviewGrades = $state<Grade[]>([]);
   let loading = $state(true);
@@ -21,10 +20,9 @@
   async function loadData() {
     loading = true;
     try {
-      const myGrades = await gradeRepo.getByReviewer($currentUserId ?? '');
+      const myGrades = await gradingService.getDecryptedGrades($currentUserId ?? '');
       recentGrades = myGrades.sort((a, b) => b.createdAt - a.createdAt).slice(0, 20);
-      // Fetch ALL grades requiring second review (not just this reviewer's)
-      secondReviewGrades = await gradingService.getGradesRequiringSecondReview();
+      secondReviewGrades = await gradingService.getDecryptedSecondReviewQueue();
     } catch (e) { error = e instanceof Error ? e.message : 'Failed to load'; }
     finally { loading = false; }
   }
@@ -40,7 +38,7 @@
     if (!reviewingGrade || !$currentUserId) return;
     error = '';
     try {
-      await gradingService.submitSecondReview(reviewingGrade.id, $currentUserId, roundToHalf(reviewScore), reviewFeedback);
+      await gradingService.submitSecondReview(reviewingGrade.id, $currentUserId, roundToHalf(reviewScore), reviewFeedback, getActor());
       reviewingGrade = null;
       await loadData();
     } catch (e) { error = e instanceof Error ? e.message : 'Second review failed'; }

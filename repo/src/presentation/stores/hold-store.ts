@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
 import type { Hold } from '@domain/models/hold';
+import type { ServiceActor } from '@services/service-actor';
 import { holdService } from '@services/container';
 
 export const activeHolds = writable<Hold[]>([]);
@@ -27,30 +28,30 @@ export async function refreshHolds(tripId: string) {
   }
 }
 
-export async function placeHold(tripId: string, seatMapEntryId: string, userId: string) {
+export async function placeHold(tripId: string, seatMapEntryId: string, userId: string, actor: ServiceActor) {
   holdError.set(null);
   try {
-    await holdService.placeSeatHold(tripId, seatMapEntryId, userId);
+    await holdService.placeSeatHold(tripId, seatMapEntryId, userId, actor);
   } catch (e) {
     holdError.set(e instanceof Error ? e.message : 'Failed to place hold');
     throw e;
   }
 }
 
-export async function releaseHold(holdId: string, userId: string) {
+export async function releaseHold(holdId: string, userId: string, actor: ServiceActor) {
   holdError.set(null);
   try {
-    await holdService.releaseSeatHold(holdId, userId);
+    await holdService.releaseSeatHold(holdId, userId, actor);
   } catch (e) {
     holdError.set(e instanceof Error ? e.message : 'Failed to release hold');
     throw e;
   }
 }
 
-export async function confirmHold(holdId: string, userId: string) {
+export async function confirmHold(holdId: string, userId: string, actor: ServiceActor) {
   holdError.set(null);
   try {
-    await holdService.confirmSeatHold(holdId, userId);
+    await holdService.confirmSeatHold(holdId, userId, actor);
   } catch (e) {
     holdError.set(e instanceof Error ? e.message : 'Failed to confirm hold');
     throw e;

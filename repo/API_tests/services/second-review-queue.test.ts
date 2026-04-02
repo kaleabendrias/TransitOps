@@ -6,6 +6,8 @@ import { QuestionRepositoryIDB } from '@adapters/indexeddb/question-repository-i
 import { createQuestion } from '@domain/models/question';
 import { createAttempt } from '@domain/models/attempt';
 
+const actor = { userId: 'test', role: 'administrator' as const };
+
 describe('Second-review queue visibility', () => {
   let svc: GradingService;
   let questionRepo: QuestionRepositoryIDB;
@@ -24,9 +26,9 @@ describe('Second-review queue visibility', () => {
     await attemptRepo.save(a);
 
     // First grade
-    await svc.manualGrade({ attemptId: a.id, reviewerId, score: firstScore, maxScore, feedback: 'initial' });
+    await svc.manualGrade({ attemptId: a.id, reviewerId, score: firstScore, maxScore, feedback: 'initial' }, actor);
     // Second grade with large change to trigger second-review flag
-    return svc.manualGrade({ attemptId: a.id, reviewerId, score: secondScore, maxScore, feedback: 'revised' });
+    return svc.manualGrade({ attemptId: a.id, reviewerId, score: secondScore, maxScore, feedback: 'revised' }, actor);
   }
 
   it('getGradesRequiringSecondReview returns ALL flagged grades, not just one reviewer', async () => {
@@ -46,7 +48,7 @@ describe('Second-review queue visibility', () => {
     const flagged = await createGradedAttempt('r1', 5, 19, 20);
     expect(flagged.requiresSecondReview).toBe(true);
 
-    await svc.submitSecondReview(flagged.id, 'r2', 15, 'Looks ok');
+    await svc.submitSecondReview(flagged.id, 'r2', 15, 'Looks ok', actor);
 
     const queue = await svc.getGradesRequiringSecondReview();
     expect(queue.length).toBe(0);
@@ -59,8 +61,8 @@ describe('Second-review queue visibility', () => {
     await attemptRepo.save(a);
 
     // Small score change (within threshold)
-    await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 7, maxScore: 10, feedback: 'ok' });
-    await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 8, maxScore: 10, feedback: 'revised' });
+    await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 7, maxScore: 10, feedback: 'ok' }, actor);
+    await svc.manualGrade({ attemptId: a.id, reviewerId: 'r1', score: 8, maxScore: 10, feedback: 'revised' }, actor);
 
     const queue = await svc.getGradesRequiringSecondReview();
     expect(queue.length).toBe(0);

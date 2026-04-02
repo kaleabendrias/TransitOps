@@ -83,23 +83,17 @@
   });
 
   async function handleSeatClick(seat: SeatMapEntry) {
-    if (editMode) {
-      selectedSeat = seat;
-      return;
-    }
-    // Check if user already holds this seat
+    selectedSeat = seat;
+  }
+
+  async function handleHoldSeat() {
+    if (!selectedSeat || !$currentUserId || !trip) return;
     const existingHold = ($activeHolds).find(
-      (h: Hold) => h.seatMapEntryId === seat.id && h.userId === $currentUserId
+      (h: Hold) => h.seatMapEntryId === selectedSeat!.id && h.userId === $currentUserId
     );
-    if (existingHold) {
-      selectedSeat = seat;
-      return;
-    }
-    // Try to place a hold
-    if (!$currentUserId || !trip) return;
+    if (existingHold) return;
     try {
-      await placeHold(trip.id, seat.id, $currentUserId);
-      selectedSeat = seat;
+      await placeHold(trip.id, selectedSeat.id, $currentUserId, getActor());
     } catch {
       // Error displayed via holdError
     }
@@ -223,7 +217,7 @@
             </div>
           {:else if !editMode && selectedSeat}
             {@const seatHold = getHoldForSeat(selectedSeat.id)}
-            <div class="panel-card">
+            <div class="panel-card booking-panel">
               <h3>{selectedSeat.label}</h3>
               <p>Type: {SEAT_TYPE_LABELS[selectedSeat.seatType]}</p>
               <p>Score: {selectedSeat.score}/100</p>
@@ -233,10 +227,10 @@
                   <p class="hold-label">Your Hold</p>
                   <HoldCountdown hold={seatHold} onExpired={() => { selectedSeat = null; }} />
                   <div class="hold-actions">
-                    <button class="confirm-btn" onclick={() => seatHold && $currentUserId && confirmHold(seatHold.id, $currentUserId)}>
-                      Confirm
+                    <button class="confirm-btn" onclick={() => seatHold && $currentUserId && confirmHold(seatHold.id, $currentUserId, getActor())}>
+                      Confirm Booking
                     </button>
-                    <button class="release-btn" onclick={() => seatHold && $currentUserId && releaseHold(seatHold.id, $currentUserId)}>
+                    <button class="release-btn" onclick={() => seatHold && $currentUserId && releaseHold(seatHold.id, $currentUserId, getActor())}>
                       Release
                     </button>
                   </div>
@@ -246,8 +240,15 @@
               {:else if confirmedSeatIds.has(selectedSeat.id)}
                 <p class="confirmed-label">Confirmed / Booked</p>
               {:else}
-                <p class="available-label">Available</p>
+                <div class="booking-action">
+                  <p class="available-label">Available</p>
+                  {#if checkPermission($currentRole, 'hold_seats')}
+                    <button class="hold-btn" onclick={handleHoldSeat}>Hold Seat</button>
+                  {/if}
+                </div>
               {/if}
+
+              <button class="deselect-btn" onclick={() => selectedSeat = null}>Close</button>
             </div>
           {:else}
             <div class="panel-card">
@@ -468,6 +469,19 @@
     border-bottom: 1px solid #44475a;
   }
   .hold-row:last-child { border-bottom: none; }
+  .booking-panel { border-color: #8be9fd; }
+  .booking-action { margin-top: 0.5rem; }
+  .hold-btn {
+    width: 100%; margin-top: 0.5rem; padding: 0.5rem;
+    background: #8be9fd; color: #282a36; border: none;
+    border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 0.9rem;
+  }
+  .hold-btn:hover { background: #6dd8ec; }
+  .deselect-btn {
+    width: 100%; margin-top: 0.8rem; padding: 0.3rem;
+    background: none; border: 1px solid #44475a; color: #888;
+    border-radius: 4px; cursor: pointer; font-size: 0.75rem;
+  }
 
   @media (max-width: 900px) {
     .layout {

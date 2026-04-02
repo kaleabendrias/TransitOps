@@ -4,6 +4,8 @@ import { HoldRepositoryIDB } from '@adapters/indexeddb/hold-repository-idb';
 import { SeatMapRepositoryIDB } from '@adapters/indexeddb/seat-map-repository-idb';
 import { createSeatMapEntry } from '@domain/models/seat-map';
 
+const actor = { userId: 'test', role: 'administrator' as const };
+
 describe('Multi-tab seat hold race condition', () => {
   let svc1: HoldService;
   let svc2: HoldService;
@@ -27,17 +29,17 @@ describe('Multi-tab seat hold race condition', () => {
     const seat = createSeatMapEntry({ tripId: 't1', row: 1, number: 1 });
     await seatMapRepo.save(seat);
 
-    await svc1.placeSeatHold('t1', seat.id, 'userA');
-    await expect(svc2.placeSeatHold('t1', seat.id, 'userB')).rejects.toThrow('already held');
+    await svc1.placeSeatHold('t1', seat.id, 'userA', actor);
+    await expect(svc2.placeSeatHold('t1', seat.id, 'userB', actor)).rejects.toThrow('already held');
   });
 
   it('second tab can hold seat after first tab releases', async () => {
     const seat = createSeatMapEntry({ tripId: 't1', row: 1, number: 1 });
     await seatMapRepo.save(seat);
 
-    const hold = await svc1.placeSeatHold('t1', seat.id, 'userA');
-    await svc1.releaseSeatHold(hold.id, 'userA');
-    const hold2 = await svc2.placeSeatHold('t1', seat.id, 'userB');
+    const hold = await svc1.placeSeatHold('t1', seat.id, 'userA', actor);
+    await svc1.releaseSeatHold(hold.id, 'userA', actor);
+    const hold2 = await svc2.placeSeatHold('t1', seat.id, 'userB', actor);
     expect(hold2.userId).toBe('userB');
   });
 
@@ -45,12 +47,12 @@ describe('Multi-tab seat hold race condition', () => {
     const seat = createSeatMapEntry({ tripId: 't1', row: 1, number: 1 });
     await seatMapRepo.save(seat);
 
-    const hold = await svc1.placeSeatHold('t1', seat.id, 'userA');
+    const hold = await svc1.placeSeatHold('t1', seat.id, 'userA', actor);
     // Simulate expiry by writing expired hold directly
     await holdRepo.save({ ...hold, expiresAt: Date.now() - 1000 });
 
     // Tab2 auto-expires stale hold and acquires
-    const hold2 = await svc2.placeSeatHold('t1', seat.id, 'userB');
+    const hold2 = await svc2.placeSeatHold('t1', seat.id, 'userB', actor);
     expect(hold2.userId).toBe('userB');
   });
 
@@ -61,8 +63,8 @@ describe('Multi-tab seat hold race condition', () => {
     await seatMapRepo.save(seat2);
 
     const [h1, h2] = await Promise.all([
-      svc1.placeSeatHold('t1', seat1.id, 'userA'),
-      svc2.placeSeatHold('t1', seat2.id, 'userB'),
+      svc1.placeSeatHold('t1', seat1.id, 'userA', actor),
+      svc2.placeSeatHold('t1', seat2.id, 'userB', actor),
     ]);
     expect(h1.seatMapEntryId).toBe(seat1.id);
     expect(h2.seatMapEntryId).toBe(seat2.id);
@@ -72,7 +74,7 @@ describe('Multi-tab seat hold race condition', () => {
     const seat = createSeatMapEntry({ tripId: 't1', row: 1, number: 1 });
     await seatMapRepo.save(seat);
 
-    const hold = await svc1.placeSeatHold('t1', seat.id, 'userA');
+    const hold = await svc1.placeSeatHold('t1', seat.id, 'userA', actor);
     await holdRepo.save({ ...hold, expiresAt: Date.now() - 1000 });
 
     // Tab2 sweeps expired holds

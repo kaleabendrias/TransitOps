@@ -99,6 +99,11 @@ export class AuthService {
   getSession(): AuthSession | null { return this.authRepo.getSession(); }
   isLoggedIn(): boolean { return this.authRepo.getSession() !== null; }
 
+  async adminExists(): Promise<boolean> {
+    const users = await this.userRepo.getAll();
+    return users.some((u) => u.role === 'administrator');
+  }
+
   async getUser(userId: string): Promise<SafeUser | null> {
     const user = await this.userRepo.getById(userId);
     return user ? redactUser(user) : null;

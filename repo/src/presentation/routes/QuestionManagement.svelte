@@ -149,6 +149,9 @@
           {#if q.explanation}<p class="q-explain">Explanation: {q.explanation}</p>{/if}
           {#if q.tags.length > 0}<div class="q-tags">{#each q.tags as t}<span class="tag">{t}</span>{/each}</div>{/if}
           <div class="q-actions">
+            {#if q.status === 'active'}
+              <a href="#/assess/{q.id}" class="assess-link">Assess</a>
+            {/if}
             <button onclick={() => openEdit(q)}>Edit</button>
             <button onclick={() => handleCopy(q)}>Copy</button>
             {#if q.status === 'active'}<button onclick={() => handleDeactivate(q)}>Deactivate</button>{/if}
@@ -205,4 +208,6 @@
   .q-actions button { padding: 0.2rem 0.5rem; background: none; border: 1px solid #44475a; color: #ccc; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
   .q-actions button:hover { border-color: #8be9fd; color: #8be9fd; }
   .del-btn { border-color: #ff5555 !important; color: #ff5555 !important; }
+  .assess-link { padding: 0.2rem 0.5rem; background: none; border: 1px solid #50fa7b; color: #50fa7b; border-radius: 4px; cursor: pointer; font-size: 0.75rem; text-decoration: none; }
+  .assess-link:hover { background: rgba(80, 250, 123, 0.1); }
 </style>

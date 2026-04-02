@@ -1,4 +1,6 @@
-# Seat Scoring App
+# TransitOps
+
+Transit operations management platform with role-based access, encrypted data at rest, and offline-first IndexedDB persistence.
 
 ## Build and run (Docker — fully self-contained)
 
