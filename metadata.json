@@ -1,0 +1,9 @@
+{
+  "prompt": "Create the required root submission structure with docs, repo, sessions, and metadata for the Seat Scoring App task.",
+  "project_type": "web",
+  "frontend_language": "typescript",
+  "backend_language": "none",
+  "frontend_framework": "svelte",
+  "backend_framework": "none",
+  "database": "none"
+}
